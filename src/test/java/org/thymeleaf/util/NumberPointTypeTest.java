@@ -14,15 +14,15 @@ public class NumberPointTypeTest {
 
     private static final String INVALID_NAME = "INVALID_NAME";
 
-	@Test
+    @Test
     public void match_returns_null_when_invalid_enum_name() {
         assertNull(NumberPointType.match(INVALID_NAME));
     }
     
     @Test(expected=IllegalArgumentException.class)
-	public void valueOf_throws_exception_when_invalid_enum_name() throws Exception {
-    	NumberPointType.valueOf(INVALID_NAME);
-	}
+    public void valueOf_throws_exception_when_invalid_enum_name() throws Exception {
+        NumberPointType.valueOf(INVALID_NAME);
+    }
     
     @Test
     public void match_returns_valueOf_string() throws Exception {
