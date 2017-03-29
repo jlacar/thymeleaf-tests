@@ -17,7 +17,7 @@
  * 
  * =============================================================================
  */
-package org.thymeleaf.util;
+package org.thymeleaf.engine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,7 +26,7 @@ import java.nio.charset.Charset;
 import org.junit.Assert;
 import org.junit.Test;
 
-public final class SSEOutputStreamTest {
+public final class SSEThrottledTemplateWriterTest {
 
 
     @Test
@@ -72,22 +72,18 @@ public final class SSEOutputStreamTest {
                 for (int k = 0; k < events.length; k++) {
 
                     final StringBuilder prefixBuilder = new StringBuilder();
-                    if (ids[j] != null) {
-                        prefixBuilder.append("id: " + ids[j] + "\n");
-                    }
                     if (events[k] != null) {
                         prefixBuilder.append("event: " + events[k] + "\n");
+                    }
+                    if (ids[j] != null) {
+                        prefixBuilder.append("id: " + ids[j] + "\n");
                     }
                     final String prefix = prefixBuilder.toString();
 
                     String expectedres = expectedResult;
-                    if (prefix.length() > 0) {
+                    if (prefix.length() > 0 && expectedResult.length() > 0) {
                         expectedres = prefix + expectedres.replaceAll("\\n\\n", "\n\n" + prefix);
-                        if (expectedResult.length() > 0) {
-                            expectedres = expectedres.substring(0, expectedres.length() - prefix.length());
-                        } else { // only meta then
-                            expectedres += "\n";
-                        }
+                        expectedres = expectedres.substring(0, expectedres.length() - prefix.length());
                     }
 
                     sseize(ids[j], events[k], charsets[i], expectedres, text);
@@ -105,17 +101,22 @@ public final class SSEOutputStreamTest {
 
         final ByteArrayOutputStream baosResult = new ByteArrayOutputStream();
 
-        final byte[][] orig = new byte[text.length][];
+        final char[][] orig = new char[text.length][];
         for (int i = 0; i < text.length; i++) {
-            orig[i] = text[i].getBytes(charset);
+            orig[i] = text[i].toCharArray();
         }
 
-        final SSEOutputStream sseOutputStreamResult = new SSEOutputStream(charset);
-        sseOutputStreamResult.setBufferOutputStream(baosResult);
+        final TemplateFlowController resultFlowController = new TemplateFlowController();
+        final SSEThrottledTemplateWriter sseOutputStreamResult = new SSEThrottledTemplateWriter("test", resultFlowController);
+        sseOutputStreamResult.setOutput(baosResult, charset, Integer.MAX_VALUE);
+        sseOutputStreamResult.allow(Integer.MAX_VALUE);
         for (int i = 0; i < orig.length; i++) {
             sseOutputStreamResult.startEvent(id, event);
             sseOutputStreamResult.write(orig[i]);
             sseOutputStreamResult.endEvent();
+        }
+        while (sseOutputStreamResult.isOverflown()) {
+            sseOutputStreamResult.write(new char[0]);
         }
 
         final String result = new String(baosResult.toByteArray(), charset);
@@ -125,9 +126,11 @@ public final class SSEOutputStreamTest {
         Assert.assertEquals(expectedResult, result);
 
         {
+            final TemplateFlowController flowController = new TemplateFlowController();
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
             for (int i = 0; i < orig.length; i++) {
                 sseOutputStream.startEvent(id, event);
                 for (int j = 0; j < orig[i].length; j++) {
@@ -135,21 +138,8 @@ public final class SSEOutputStreamTest {
                 }
                 sseOutputStream.endEvent();
             }
-
-            Assert.assertEquals(result, new String(baos.toByteArray(), charset));
-
-        }
-
-        {
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
-            for (int i = 0; i < orig.length; i++) {
-                sseOutputStream.startEvent(id, event);
-                for (int j = 0; j < orig[i].length; j++) {
-                    sseOutputStream.write(orig[i], j, 1);
-                }
-                sseOutputStream.endEvent();
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
             }
 
             Assert.assertEquals(result, new String(baos.toByteArray(), charset));
@@ -157,9 +147,32 @@ public final class SSEOutputStreamTest {
         }
 
         {
+            final TemplateFlowController flowController = new TemplateFlowController();
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
+            for (int i = 0; i < orig.length; i++) {
+                sseOutputStream.startEvent(id, event);
+                for (int j = 0; j < orig[i].length; j++) {
+                    sseOutputStream.write(orig[i], j, 1);
+                }
+                sseOutputStream.endEvent();
+            }
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
+            }
+
+            Assert.assertEquals(result, new String(baos.toByteArray(), charset));
+
+        }
+
+        {
+            final TemplateFlowController flowController = new TemplateFlowController();
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
             for (int i = 0; i < orig.length; i++) {
                 sseOutputStream.startEvent(id, event);
                 for (int j = 0; j < orig[i].length;) {
@@ -173,15 +186,20 @@ public final class SSEOutputStreamTest {
                 }
                 sseOutputStream.endEvent();
             }
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
+            }
 
             Assert.assertEquals(result, new String(baos.toByteArray(), charset));
 
         }
 
         {
+            final TemplateFlowController flowController = new TemplateFlowController();
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
             for (int i = 0; i < orig.length; i++) {
                 sseOutputStream.startEvent(id, event);
                 for (int j = 0; j < orig[i].length;) {
@@ -195,15 +213,20 @@ public final class SSEOutputStreamTest {
                 }
                 sseOutputStream.endEvent();
             }
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
+            }
 
             Assert.assertEquals(result, new String(baos.toByteArray(), charset));
 
         }
 
         {
+            final TemplateFlowController flowController = new TemplateFlowController();
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
             for (int i = 0; i < orig.length; i++) {
                 sseOutputStream.startEvent(id, event);
                 for (int j = 0; j < orig[i].length;) {
@@ -217,15 +240,20 @@ public final class SSEOutputStreamTest {
                 }
                 sseOutputStream.endEvent();
             }
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
+            }
 
             Assert.assertEquals(result, new String(baos.toByteArray(), charset));
 
         }
 
         {
+            final TemplateFlowController flowController = new TemplateFlowController();
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final SSEOutputStream sseOutputStream = new SSEOutputStream(charset);
-            sseOutputStream.setBufferOutputStream(baos);
+            final SSEThrottledTemplateWriter sseOutputStream = new SSEThrottledTemplateWriter("test", flowController);
+            sseOutputStream.setOutput(baos, charset, Integer.MAX_VALUE);
+            sseOutputStream.allow(Integer.MAX_VALUE);
             for (int i = 0; i < orig.length; i++) {
                 sseOutputStream.startEvent(id, event);
                 for (int j = 0; j < orig[i].length;) {
@@ -238,6 +266,9 @@ public final class SSEOutputStreamTest {
                     }
                 }
                 sseOutputStream.endEvent();
+            }
+            while (sseOutputStream.isOverflown()) {
+                sseOutputStream.write(new char[0]);
             }
 
             Assert.assertEquals(result, new String(baos.toByteArray(), charset));
