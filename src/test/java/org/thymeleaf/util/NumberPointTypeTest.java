@@ -1,8 +1,6 @@
 package org.thymeleaf.util;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 import static org.thymeleaf.util.NumberPointType.COMMA;
 import static org.thymeleaf.util.NumberPointType.DEFAULT;
 import static org.thymeleaf.util.NumberPointType.NONE;
@@ -14,10 +12,17 @@ import org.junit.Test;
 
 public class NumberPointTypeTest {
 
-    @Test
+    private static final String INVALID_NAME = "INVALID_NAME";
+
+	@Test
     public void match_returns_null_when_invalid_enum_name() {
-        assertNull(NumberPointType.match("INVALID_NAME"));
+        assertNull(NumberPointType.match(INVALID_NAME));
     }
+    
+    @Test(expected=IllegalArgumentException.class)
+	public void valueOf_throws_exception_when_invalid_enum_name() throws Exception {
+    	NumberPointType.valueOf(INVALID_NAME);
+	}
     
     @Test
     public void match_returns_valueOf_string() throws Exception {
@@ -32,7 +37,7 @@ public class NumberPointTypeTest {
     public void all_values_accounted_for_in_tests() throws Exception {
         /* Developer Note: This test is intended to break if set of values of the 
          * enum type changes. If that happens, review the other tests here to make 
-         * sure that they agree with the complete and current set of values.
+         * sure that they cover the complete and current set of enum values.
          */
         assertArrayEquals(new NumberPointType[] {POINT, COMMA, WHITESPACE, NONE, DEFAULT}, 
                 NumberPointType.values());
