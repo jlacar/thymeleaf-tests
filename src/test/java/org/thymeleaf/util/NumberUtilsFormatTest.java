@@ -47,8 +47,8 @@ public class NumberUtilsFormatTest {
     
     /**
      * Provides a reference format value for the given target number based on the 
-     * given DecimalFormat pattern. The reference value is created using the 
-     * default locale.
+     * given DecimalFormat pattern. The reference value is created using 
+     * Locale.US as the default locale.
      * <p>
      * The value returned gives a baseline for comparison with the output of the 
      * format() method being tested.
